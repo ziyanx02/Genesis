@@ -1648,8 +1648,17 @@ class RigidSolver(Solver):
             self._rigid_adjoint_cache_bw,
         ]:
             for attr in state.__dict__.values():
-                if hasattr(attr, 'grad') and attr.grad is not None:
-                    attr.grad.fill(0.0)
+                grad = getattr(attr, "grad", None)
+                if grad is None:
+                    continue
+
+                # Some Taichi fields expose `.grad` even when the grad field is not materialized.
+                # Calling `fill` on those fields triggers a compilation failure (snode ptr is None).
+                snode = getattr(grad, "_snode", None)
+                if snode is not None and getattr(snode, "ptr", None) is None:
+                    continue
+
+                grad.fill(0.0)
 
 
     def update_geoms_render_T(self):
